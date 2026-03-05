@@ -1,0 +1,2001 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>机器事业部管理系统 - 云端版</title>
+    <!-- 引入 SheetJS 用于处理 Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <!-- 引入 Supabase 客户端 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* ========== 全局重置（现代风格） ========== */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Microsoft YaHei', sans-serif; background-color: #f9fafb; line-height: 1.5; color: #1f2937; }
+        .container { max-width: 1600px; margin: 20px auto; background: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1); overflow: hidden; }
+        .app-header { padding: 20px 28px 8px 28px; }
+        .app-header h2 { font-size: 1.8rem; font-weight: 600; color: #111827; letter-spacing: -0.02em; border-left: 6px solid #2d89ef; padding-left: 16px; margin: 0; }
+        .app-main-row { display: flex; min-height: 600px; }
+        /* ========== 左侧侧边栏 ========== */
+        .sidebar { width: 240px; background: #ffffff; border-right: 1px solid #e5e7eb; transition: width 0.2s ease; display: flex; flex-direction: column; padding: 20px 0; }
+        .sidebar.collapsed { width: 80px; }
+        .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 0 16px 20px 16px; border-bottom: 1px solid #e5e7eb; margin-bottom: 16px; }
+        .sidebar-header .logo-text { font-weight: 600; color: #1f2937; font-size: 1rem; white-space: nowrap; overflow: hidden; }
+        .sidebar.collapsed .logo-text { display: none; }
+        .toggle-btn { background: #f3f4f6; border: none; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #4b5563; font-size: 1.2rem; transition: background 0.2s; }
+        .toggle-btn:hover { background: #e5e7eb; }
+        .sidebar-menu { list-style: none; padding: 0 12px; flex: 1; }
+        .sidebar-menu li { margin-bottom: 4px; }
+        .sidebar-menu li a { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 8px; color: #4b5563; text-decoration: none; font-weight: 500; transition: all 0.2s; white-space: nowrap; cursor: pointer; }
+        .sidebar-menu li a:hover { background: #f3f4f6; color: #111827; }
+        .sidebar-menu li a .menu-icon { font-size: 1.4rem; min-width: 28px; text-align: center; transition: color 0.2s; }
+        .sidebar-menu li a:hover .menu-icon { color: #2d89ef; }
+        .sidebar.collapsed .sidebar-menu li a span:not(.menu-icon) { display: none; }
+        .sidebar.collapsed .sidebar-menu li a { justify-content: center; padding: 12px 0; }
+        /* ========== 右侧主内容 ========== */
+        .main-content { flex: 1; padding: 20px 28px 28px 28px; background: #ffffff; overflow-x: auto; }
+        .user-info { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 12px 20px; background: #f9fafb; border-radius: 12px; color: #1f2937; }
+        .user-info strong { color: #111827; font-weight: 600; }
+        .hidden-buttons { display: none; }
+        /* 后台管理面板 */
+        #optionManager { border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin: 24px 0; background: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .option-section { margin-bottom: 24px; }
+        .option-section h4 { margin: 0 0 14px 0; color: #1f2937; font-weight: 600; font-size: 1rem; }
+        .option-list { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; min-height: 60px; }
+        .option-item { background: #e5e7eb; color: #1f2937; padding: 6px 16px; border-radius: 20px; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .option-item button { background: transparent; border: none; color: #1f2937; cursor: pointer; font-size: 16px; padding: 0 2px; line-height: 1; box-shadow: none; }
+        .option-item button:hover { opacity: 0.8; }
+        .add-option { display: flex; gap: 10px; }
+        .add-option input { flex: 1; padding: 10px 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; transition: 0.2s; }
+        .add-option input:focus { outline: none; border-color: #2d89ef; box-shadow: 0 0 0 3px rgba(45,137,239,0.1); }
+        /* ========== 统一表单控件样式 ========== */
+        .form-control { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.95rem; line-height: 1.5; background-color: #ffffff; font-family: inherit; box-sizing: border-box; transition: all 0.2s; }
+        .form-control:focus { border-color: #2d89ef; outline: none; box-shadow: 0 0 0 3px rgba(45,137,239,0.1); }
+        input.form-control, select.form-control { height: 40px; }
+        textarea.form-control { height: auto; min-height: 100px; resize: vertical; }
+        select.form-control { appearance: none; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; padding-right: 30px; }
+        /* ========== 暴力重置收单部门和更换配件明细 ========== */
+        #receivingDept, #replacedParts { all: unset; width: 100% !important; padding: 10px 12px !important; border: 1px solid #e5e7eb !important; border-radius: 8px !important; font-size: 0.95rem !important; line-height: 1.5 !important; font-family: inherit !important; background-color: #ffffff !important; box-sizing: border-box !important; transition: all 0.2s !important; }
+        #receivingDept { height: 40px !important; }
+        #replacedParts { height: auto !important; min-height: 100px !important; resize: vertical !important; }
+        #receivingDept:focus, #replacedParts:focus { border-color: #2d89ef !important; outline: none !important; box-shadow: 0 0 0 3px rgba(45,137,239,0.1) !important; }
+        /* ========== 表单布局 ========== */
+        .modern-form { background: #ffffff; padding: 24px 28px; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1); margin: 20px 0; border: 1px solid #e5e7eb; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 24px; }
+        .form-item { display: flex; flex-direction: column; }
+        .form-item label { font-weight: 600; color: #1f2937; font-size: 0.9rem; margin-bottom: 6px; }
+        .form-item-full { grid-column: span 2; }
+        .form-actions { display: flex; gap: 16px; margin-top: 28px; justify-content: flex-end; }
+        .form-actions button { padding: 10px 28px; font-size: 0.95rem; font-weight: 500; transition: all 0.2s; border: none; cursor: pointer; border-radius: 8px; background: white; color: #1f2937; border: 1px solid #e5e7eb; }
+        #saveButton { background: #2d89ef; color: white; border: none; box-shadow: 0 1px 3px rgba(45,137,239,0.3); }
+        #saveButton:hover { background: #1b5cb8; }
+        #cancelButton:hover { background: #f3f4f6; border-color: #d1d5db; }
+        /* 多物品行样式 */
+        .pick-items-container, .inbound-items-container { grid-column: span 2; margin: 10px 0; }
+        .pick-item-row, .inbound-item-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; background: #f9fafb; padding: 10px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .pick-item-index, .inbound-item-index { width: 30px; font-weight: 600; text-align: center; color: #1f2937; }
+        .pick-item-row .form-control, .inbound-item-row .form-control { flex: 1; min-width: 0; }
+        .pick-item-row .remove-item-btn, .inbound-item-row .remove-item-btn { background: transparent; border: 1px solid #e5e7eb; border-radius: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #4b5563; font-size: 1.2rem; transition: all 0.2s; }
+        .pick-item-row .remove-item-btn:hover, .inbound-item-row .remove-item-btn:hover { background: #f3f4f6; border-color: #ef4444; color: #ef4444; }
+        .add-item-btn { background: #f3f4f6; border: 1px dashed #9ca3af; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 0.9rem; color: #1f2937; margin-top: 8px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+        .add-item-btn:hover { background: #e5e7eb; border-color: #2d89ef; }
+        .add-item-btn.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+        /* ========== 设备列表表格 ========== */
+        .table-responsive { width: 100%; overflow-x: auto; margin-top: 20px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 0; }
+        #deviceTable, #pickTable, #inboundTable { border-collapse: collapse; width: 100%; font-size: 0.9rem; table-layout: fixed; }
+        #deviceTable th, #pickTable th, #inboundTable th { background-color: #f9fafb; color: #1f2937; font-weight: 600; text-align: center; padding: 14px 8px; white-space: nowrap; border-bottom: 2px solid #e5e7eb; font-size: 0.9rem; }
+        #deviceTable td, #pickTable td, #inboundTable td { background-color: white; padding: 12px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #deviceTable tr:hover td, #pickTable tr:hover td, #inboundTable tr:hover td { background-color: #f9fafb; }
+        #deviceTable td:nth-child(10) { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #deviceTable td:nth-child(12), #deviceTable td:nth-child(15) { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #deviceTable td:last-child { white-space: nowrap; overflow: visible; }
+        #deviceTable th:nth-child(1) { width: 4%; } #deviceTable th:nth-child(2) { width: 6%; } #deviceTable th:nth-child(3) { width: 7%; } #deviceTable th:nth-child(4) { width: 7%; } #deviceTable th:nth-child(5) { width: 6%; } #deviceTable th:nth-child(6) { width: 6%; } #deviceTable th:nth-child(7) { width: 7%; } #deviceTable th:nth-child(8) { width: 6%; } #deviceTable th:nth-child(9) { width: 6%; } #deviceTable th:nth-child(10) { width: 12%; } #deviceTable th:nth-child(11) { width: 6%; } #deviceTable th:nth-child(12) { width: 8%; } #deviceTable th:nth-child(13) { width: 6%; } #deviceTable th:nth-child(14) { width: 6%; } #deviceTable th:nth-child(15) { width: 6%; }
+        #pickTable th:nth-child(1), #inboundTable th:nth-child(1) { width: 6%; }
+        #pickTable th:nth-child(2), #inboundTable th:nth-child(2) { width: 12%; }
+        #pickTable th:nth-child(3), #inboundTable th:nth-child(3) { width: 20%; }
+        #pickTable th:nth-child(4), #inboundTable th:nth-child(4) { width: 10%; }
+        #pickTable th:nth-child(5), #inboundTable th:nth-child(5) { width: 15%; }
+        #pickTable th:nth-child(6), #inboundTable th:nth-child(6) { width: 37%; }
+        .icon-btn { background: transparent; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 8px; margin: 0 2px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; color: #4b5563; box-shadow: none; }
+        .icon-btn:hover { background: #f3f4f6; border-color: #2d89ef; color: #2d89ef; }
+        /* 模态框 */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4); justify-content: center; align-items: center; backdrop-filter: blur(3px); }
+        .modal-content { background-color: white; padding: 28px 32px; border-radius: 16px; max-width: 700px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); position: relative; }
+        .close-modal, .close-pick-modal, .close-inbound-modal { position: absolute; top: 18px; right: 24px; font-size: 28px; font-weight: 300; color: #9ca3af; cursor: pointer; line-height: 1; transition: 0.2s; }
+        .close-modal:hover, .close-pick-modal:hover, .close-inbound-modal:hover { color: #1f2937; }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; margin-top: 16px; }
+        .detail-item-full { grid-column: 1 / -1; }
+        .detail-label { font-weight: 600; color: #1f2937; font-size: 0.85rem; margin-bottom: 4px; }
+        .detail-value { color: #1f2937; font-size: 0.95rem; white-space: pre-wrap; word-break: break-word; background: #f9fafb; padding: 8px 12px; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        .items-table th, .items-table td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+        .items-table th { background: #f3f4f6; font-weight: 600; }
+        .debug { font-family: 'JetBrains Mono', monospace; background: #111827; color: #b9e6b9; padding: 12px 16px; border-radius: 8px; white-space: pre-wrap; max-height: 140px; overflow: auto; margin-top: 24px; font-size: 0.85rem; border: 1px solid #374151; }
+        /* 登录界面 */
+        #loginDiv { max-width: 400px; margin: 40px auto; background: white; padding: 36px 32px; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); }
+        #loginDiv h3 { text-align: center; margin: 0 0 24px 0; color: #2d89ef; font-weight: 600; font-size: 26px; border: none; }
+        .input-container { display: flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; transition: 0.2s; margin-bottom: 20px; }
+        .input-container:hover { border-color: #9ca3af; }
+        .input-container:focus-within { border-color: #2d89ef; box-shadow: 0 0 0 3px rgba(45,137,239,0.1); }
+        .input-icon { font-size: 1.2rem; color: #9ca3af; user-select: none; }
+        .input-container input { flex: 1; height: 44px; border: none; background: transparent; font-size: 0.95rem; outline: none; padding: 0; }
+        .input-container input::placeholder { color: #9ca3af; }
+        #loginDiv .button-row { display: flex; justify-content: center; margin-top: 24px; }
+        #loginDiv .button-row button { height: 44px; padding: 0 36px; font-size: 1rem; width: 100%; background: #2d89ef; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        #loginDiv .button-row button:hover { background: #1b5cb8; }
+        #logoutBtn { border: none; background: transparent; color: #2d89ef; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; }
+        #logoutBtn:hover { background: #f3f4f6; }
+        #listImportBtn, #listExportBtn, #pickImportBtn, #pickExportBtn, #inboundImportBtn, #inboundExportBtn { border: none; background: #2d89ef; color: white; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 500; box-shadow: 0 1px 3px rgba(45,137,239,0.3); }
+        #listImportBtn:hover, #listExportBtn:hover, #pickImportBtn:hover, #pickExportBtn:hover, #inboundImportBtn:hover, #inboundExportBtn:hover { background: #1b5cb8; }
+        #closeOptionsBtn { border: none; background: #f3f4f6; color: #1f2937; padding: 8px 16px; border-radius: 8px; font-weight: 500; font-size: 0.9rem; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        #closeOptionsBtn:hover { background: #e5e7eb; }
+        #addEmployeeBtn, #addModelBtn { border: none; background: #2d89ef; color: white; padding: 8px 20px; border-radius: 8px; font-weight: 500; font-size: 0.9rem; box-shadow: 0 1px 3px rgba(45,137,239,0.3); transition: all 0.2s; }
+        #addEmployeeBtn:hover, #addModelBtn:hover { background: #1b5cb8; }
+        #deviceListDiv #searchInput, #pickSearchInput, #inboundSearchInput { width: 200px; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; font-size: 0.9rem; }
+        #deviceListDiv #searchInput:focus, #pickSearchInput:focus, #inboundSearchInput:focus { border-color: #2d89ef; outline: none; box-shadow: 0 0 0 3px rgba(45,137,239,0.1); }
+        .hidden { display: none !important; }
+        @media print { * { border-radius: 0 !important; } .print-page { page-break-after: always; } }
+    </style>
+</head>
+<body>
+
+<!-- 登录界面 -->
+<div id="loginDiv">
+    <h3>🔐 登录</h3>
+    <div class="input-container">
+        <span class="input-icon">👤</span>
+        <input id="username" type="text" placeholder="用户名">
+    </div>
+    <div class="input-container">
+        <span class="input-icon">🔒</span>
+        <input id="password" type="password" placeholder="密码">
+    </div>
+    <div class="button-row">
+        <button id="loginBtn">登录</button>
+    </div>
+</div>
+
+<!-- 主界面（登录后显示） -->
+<div id="mainDiv" class="hidden">
+    <div class="container">
+        <div class="app-header">
+            <h2>📊 机器事业部管理系统</h2>
+        </div>
+        <div class="app-main-row">
+            <!-- 左侧侧边栏 -->
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <span class="logo-text">系统菜单</span>
+                    <div class="toggle-btn" id="toggleSidebar">◀</div>
+                </div>
+                <ul class="sidebar-menu">
+                    <li><a id="menuAdd"><span class="menu-icon">➕</span><span>新增/修改设备</span></a></li>
+                    <li><a id="menuList"><span class="menu-icon">📋</span><span>设备列表</span></a></li>
+                    <li><a id="menuPickAdd"><span class="menu-icon">📦</span><span>领料开单</span></a></li>
+                    <li><a id="menuPickList"><span class="menu-icon">📋</span><span>领料列表</span></a></li>
+                    <li><a id="menuInboundAdd"><span class="menu-icon">🏭</span><span>生产入库</span></a></li>
+                    <li><a id="menuInboundList"><span class="menu-icon">📋</span><span>生产入库列表</span></a></li>
+                    <li><a id="menuOptions"><span class="menu-icon">⚙️</span><span>后台管理</span></a></li>
+                </ul>
+            </aside>
+
+            <!-- 右侧主内容 -->
+            <main class="main-content">
+                <div class="user-info">
+                    <div>👋 欢迎 <strong id="currentUser"></strong> (<span id="currentRole"></span>)</div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <button id="logoutBtn">退出登录</button>
+                    </div>
+                </div>
+
+                <!-- 后台管理面板 -->
+                <div id="optionManager" class="hidden">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 style="margin:0;">⚙️ 后台管理</h3>
+                        <button id="closeOptionsBtn" class="small">关闭</button>
+                    </div>
+                    <div class="option-section">
+                        <h4>👤 员工姓名</h4>
+                        <div id="employeeList" class="option-list"></div>
+                        <div class="add-option">
+                            <input type="text" id="newEmployee" placeholder="新员工姓名" />
+                            <button id="addEmployeeBtn">添加</button>
+                        </div>
+                    </div>
+                    <div class="option-section">
+                        <h4>📟 机器型号</h4>
+                        <div id="modelList" class="option-list"></div>
+                        <div class="add-option">
+                            <input type="text" id="newModel" placeholder="新型号" />
+                            <button id="addModelBtn">添加</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 设备新增/修改表单 -->
+                <div id="addFormDiv" class="hidden modern-form">
+                    <h3 id="formTitle" style="margin-top:0; margin-bottom:20px; color:#1f2937; font-weight:600; font-size:1.4rem;">📝 新增/修改设备</h3>
+                    <div class="form-grid">
+                        <div class="form-item-full">
+                            <label for="receivingDept">收单部门</label>
+                            <input type="text" id="receivingDept" placeholder="请输入收单部门">
+                        </div>
+                        <div class="form-item">
+                            <label for="model">机器型号</label>
+                            <input list="modelOptions" id="model" class="form-control" placeholder="请选择或输入">
+                            <datalist id="modelOptions"></datalist>
+                        </div>
+                        <div class="form-item">
+                            <label for="serial">SN</label>
+                            <input type="text" id="serial" class="form-control" placeholder="请输入SN">
+                        </div>
+                        <div class="form-item">
+                            <label for="mac">MAC</label>
+                            <input type="text" id="mac" class="form-control" placeholder="请输入MAC地址">
+                        </div>
+                        <div class="form-item">
+                            <label for="chip">芯片版本</label>
+                            <input type="text" id="chip" class="form-control" placeholder="请输入芯片版本">
+                        </div>
+                        <div class="form-item-full">
+                            <label for="replacedParts">更换配件明细</label>
+                            <textarea id="replacedParts" rows="5" placeholder="请输入更换配件明细"></textarea>
+                        </div>
+                        <div class="form-item">
+                            <label for="debugUser">操作员工</label>
+                            <select id="debugUser" class="form-control"></select>
+                        </div>
+                        <div class="form-item">
+                            <label for="debugDate">操作日期</label>
+                            <input type="date" id="debugDate" class="form-control">
+                        </div>
+                        <div class="form-item">
+                            <label for="standard">标配明细</label>
+                            <input type="text" id="standard" class="form-control" placeholder="请输入标配明细">
+                        </div>
+                        <div class="form-item">
+                            <label for="note">备注</label>
+                            <input type="text" id="note" class="form-control" placeholder="请输入备注">
+                        </div>
+                        <div class="form-item">
+                            <label for="sampleType">样张类别</label>
+                            <input type="text" id="sampleType" class="form-control" placeholder="请输入样张类别">
+                        </div>
+                        <div class="form-item">
+                            <label for="toner">随机墨粉</label>
+                            <input type="text" id="toner" class="form-control" placeholder="请输入随机墨粉">
+                        </div>
+                        <div class="form-item">
+                            <label for="shipUser">调试员工</label>
+                            <select id="shipUser" class="form-control"></select>
+                        </div>
+                        <div class="form-item">
+                            <label for="shipDate">调试日期</label>
+                            <input type="date" id="shipDate" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button id="cancelButton">取消</button>
+                        <button id="saveButton">保存</button>
+                    </div>
+                </div>
+
+                <!-- 设备列表 -->
+                <div id="deviceListDiv" class="hidden">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                        <h3 style="margin:0;">📋 设备列表</h3>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <input type="text" id="searchInput" placeholder="🔍 搜索 SN (仅 SN)">
+                            <button id="listImportBtn" class="small">📂 导入Excel</button>
+                            <button id="listExportBtn" class="small">📤 导出Excel</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="deviceTable">
+                            <thead>
+                                <tr>
+                                    <th>序号</th><th>收单部门</th><th>机器型号</th><th>SN</th><th>样张类别</th>
+                                    <th>芯片版本</th><th>MAC</th><th>操作日期</th><th>操作员工</th><th>更换配件明细</th>
+                                    <th>随机墨粉</th><th>标配明细</th><th>调试日期</th><th>调试员工</th><th>备注</th><th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 领料开单表单（保留用途） -->
+                <div id="pickAddFormDiv" class="hidden modern-form">
+                    <h3 id="pickFormTitle" style="margin-top:0; margin-bottom:20px; color:#1f2937; font-weight:600; font-size:1.4rem;">📦 新增领料</h3>
+                    <div class="form-grid">
+                        <div class="form-item-full">
+                            <label for="pickId">编号</label>
+                            <input type="text" id="pickId" class="form-control" readonly placeholder="自动生成">
+                        </div>
+                        <div class="pick-items-container">
+                            <div id="pickItemsContainer"></div>
+                            <button type="button" id="addPickItemBtn" class="add-item-btn">+ 添加物品（最多7个）</button>
+                        </div>
+                        <div class="form-item-full">
+                            <label for="pickRemark">备注</label>
+                            <textarea id="pickRemark" rows="3" class="form-control" placeholder="备注信息"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button id="pickCancelButton">取消</button>
+                        <button id="pickSaveButton">保存</button>
+                    </div>
+                </div>
+
+                <!-- 领料列表 -->
+                <div id="pickListDiv" class="hidden">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                        <h3 style="margin:0;">📋 领料列表</h3>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <input type="text" id="pickSearchInput" placeholder="🔍 搜索编号/物品">
+                            <button id="pickImportBtn" class="small">📂 导入Excel</button>
+                            <button id="pickExportBtn" class="small">📤 导出Excel</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="pickTable">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th>编号</th>
+                                    <th>物品摘要（规格）</th>
+                                    <th>物品数量</th>
+                                    <th>备注</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 生产入库表单（无用途） -->
+                <div id="inboundAddFormDiv" class="hidden modern-form">
+                    <h3 id="inboundFormTitle" style="margin-top:0; margin-bottom:20px; color:#1f2937; font-weight:600; font-size:1.4rem;">🏭 新增生产入库</h3>
+                    <div class="form-grid">
+                        <div class="form-item-full">
+                            <label for="inboundId">编号</label>
+                            <input type="text" id="inboundId" class="form-control" readonly placeholder="自动生成">
+                        </div>
+                        <div class="inbound-items-container">
+                            <div id="inboundItemsContainer"></div>
+                            <button type="button" id="addInboundItemBtn" class="add-item-btn">+ 添加物品（最多7个）</button>
+                        </div>
+                        <div class="form-item-full">
+                            <label for="inboundRemark">备注</label>
+                            <textarea id="inboundRemark" rows="3" class="form-control" placeholder="备注信息"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button id="inboundCancelButton">取消</button>
+                        <button id="inboundSaveButton">保存</button>
+                    </div>
+                </div>
+
+                <!-- 生产入库列表 -->
+                <div id="inboundListDiv" class="hidden">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                        <h3 style="margin:0;">📋 生产入库列表</h3>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <input type="text" id="inboundSearchInput" placeholder="🔍 搜索编号/物品">
+                            <button id="inboundImportBtn" class="small">📂 导入Excel</button>
+                            <button id="inboundExportBtn" class="small">📤 导出Excel</button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table id="inboundTable">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th>编号</th>
+                                    <th>物品摘要（规格）</th>
+                                    <th>物品数量</th>
+                                    <th>备注</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 调试输出 -->
+                <div class="debug" id="debugConsole">就绪 — 日志输出</div>
+
+                <!-- 隐藏的原始按钮（用于事件触发） -->
+                <div class="hidden-buttons">
+                    <button id="btnAdd"></button>
+                    <button id="btnList"></button>
+                    <button id="btnImport"></button>
+                    <button id="btnExport"></button>
+                    <button id="btnOptions"></button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 设备详情模态框 -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3 style="margin-top:0;">🔍 设备详细信息</h3>
+            <div id="modalDetailContent" class="detail-grid"></div>
+        </div>
+    </div>
+
+    <!-- 领料详情模态框 -->
+    <div id="pickDetailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-pick-modal">&times;</span>
+            <h3 style="margin-top:0;">📦 领料详细信息</h3>
+            <div id="pickModalDetailContent" class="detail-grid"></div>
+        </div>
+    </div>
+
+    <!-- 生产入库详情模态框 -->
+    <div id="inboundDetailModal" class="modal">
+        <div class="modal-content">
+            <span class="close-inbound-modal">&times;</span>
+            <h3 style="margin-top:0;">🏭 生产入库详细信息</h3>
+            <div id="inboundModalDetailContent" class="detail-grid"></div>
+        </div>
+    </div>
+
+    <!-- 隐藏的文件输入与打印 iframe -->
+    <input id="excelInput" type="file" accept=".xlsx, .xls" style="display:none">
+    <input id="pickExcelInput" type="file" accept=".xlsx, .xls" style="display:none">
+    <input id="inboundExcelInput" type="file" accept=".xlsx, .xls" style="display:none">
+    <iframe id="printFrame" style="display:none;width:0;height:0;border:0"></iframe>
+</div>
+
+<script>
+    (async function() {
+        // ---------- 配置 Supabase (已替换为您提供的密钥) ----------
+        const SUPABASE_URL = 'https://ojpuqehtqttqrrhfnkvn.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qcHVxZWh0cXR0cXJyaGZua3ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NzY2ODcsImV4cCI6MjA4ODI1MjY4N30.ugIsutU_pcJatlQTVn_w5FqjZyuGzmfQoptzYTAvfuM';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // ---------- 辅助函数 ----------
+        const $ = id => document.getElementById(id);
+        const debug = $('debugConsole');
+        function log(msg) {
+            const now = new Date().toLocaleTimeString();
+            debug.textContent = `[${now}] ${msg}\n` + debug.textContent;
+            console.log(msg);
+        }
+
+        // ---------- 用户数据 ----------
+        const users = [{ username: 'admin', password: '002', role: '管理员' }];
+        let currentUser = null, currentRole = null;
+
+        // ---------- 数据变量 ----------
+        let devices = [];
+        let pickRecords = [];
+        let inboundRecords = [];
+
+        // ---------- 选项数据 ----------
+        let employees = JSON.parse(localStorage.getItem('employees') || null) || ['李创钟', '唐聿明', '魏容涛', '温家恒', '陈小春'];
+        let models = JSON.parse(localStorage.getItem('models') || null) || ['DocuPrint C5005d', 'KM-4155', 'ApeosPort-IV C3370', 'ApeosPort-IV C3375', 'ApeosPort C3060', 'ApeosPort-VI C5571', 'ApeosPort-VII C5573'];
+
+        let editIndex = -1, pickEditIndex = -1, inboundEditIndex = -1;
+
+        // ---------- 选项管理相关函数 ----------
+        function saveOptions() {
+            localStorage.setItem('employees', JSON.stringify(employees));
+            localStorage.setItem('models', JSON.stringify(models));
+            renderEmployeeOptions();
+            renderModelOptions();
+            renderOptionLists();
+            log('选项已保存');
+        }
+
+        function renderEmployeeOptions() {
+            const debugUserSelect = $('debugUser');
+            const shipUserSelect = $('shipUser');
+            if (!debugUserSelect || !shipUserSelect) return;
+            debugUserSelect.innerHTML = '<option value="">请选择</option>';
+            shipUserSelect.innerHTML = '<option value="">请选择</option>';
+            employees.forEach(emp => {
+                const option1 = document.createElement('option');
+                option1.value = emp;
+                option1.textContent = emp;
+                debugUserSelect.appendChild(option1);
+                const option2 = document.createElement('option');
+                option2.value = emp;
+                option2.textContent = emp;
+                shipUserSelect.appendChild(option2);
+            });
+        }
+
+        function renderModelOptions() {
+            const datalist = $('modelOptions');
+            if (!datalist) return;
+            datalist.innerHTML = '';
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                datalist.appendChild(option);
+            });
+        }
+
+        function renderOptionLists() {
+            const empListDiv = $('employeeList');
+            const modelListDiv = $('modelList');
+            if (!empListDiv || !modelListDiv) return;
+
+            empListDiv.innerHTML = '';
+            employees.forEach((emp, index) => {
+                const item = document.createElement('span');
+                item.className = 'option-item';
+                item.innerHTML = `${emp} <button class="del-emp" data-index="${index}">✕</button>`;
+                empListDiv.appendChild(item);
+            });
+
+            modelListDiv.innerHTML = '';
+            models.forEach((model, index) => {
+                const item = document.createElement('span');
+                item.className = 'option-item';
+                item.innerHTML = `${model} <button class="del-model" data-index="${index}">✕</button>`;
+                modelListDiv.appendChild(item);
+            });
+
+            document.querySelectorAll('.del-emp').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = e.target.getAttribute('data-index');
+                    if (index !== null) {
+                        employees.splice(index, 1);
+                        saveOptions();
+                    }
+                });
+            });
+
+            document.querySelectorAll('.del-model').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = e.target.getAttribute('data-index');
+                    if (index !== null) {
+                        models.splice(index, 1);
+                        saveOptions();
+                    }
+                });
+            });
+        }
+
+        renderEmployeeOptions();
+        renderModelOptions();
+        renderOptionLists();
+
+        // ---------- 云数据库操作 (Supabase) ----------
+        async function loadDevices() {
+            const { data, error } = await supabase
+                .from('devices')
+                .select('data')
+                .order('created_at', { ascending: false })
+                .limit(1);
+            if (error) {
+                console.error('加载设备失败', error);
+                devices = [];
+            } else {
+                devices = data[0]?.data || [];
+            }
+            renderDeviceTable();
+        }
+
+        async function saveDevices() {
+            await supabase.from('devices').delete().neq('id', 0);
+            const { error } = await supabase
+                .from('devices')
+                .insert([{ data: devices }]);
+            if (error) console.error('保存设备失败', error);
+            log('设备数据已保存到云端');
+        }
+
+        async function loadPickRecords() {
+            const { data, error } = await supabase
+                .from('pick_records')
+                .select('data')
+                .order('created_at', { ascending: false })
+                .limit(1);
+            if (error) {
+                console.error('加载领料记录失败', error);
+                pickRecords = [];
+            } else {
+                pickRecords = data[0]?.data || [];
+                // 迁移旧数据（确保每个item有purpose字段）
+                pickRecords = pickRecords.map(rec => {
+                    if (!rec.items) rec.items = [];
+                    rec.items = rec.items.map(item => ({
+                        product: item.product || '',
+                        spec: item.spec || '',
+                        quantity: item.quantity || '',
+                        unit: item.unit || '',
+                        purpose: item.purpose || ''
+                    }));
+                    return rec;
+                });
+            }
+            renderPickTable();
+        }
+
+        async function savePickRecords() {
+            await supabase.from('pick_records').delete().neq('id', 0);
+            const { error } = await supabase
+                .from('pick_records')
+                .insert([{ data: pickRecords }]);
+            if (error) console.error('保存领料记录失败', error);
+            log('领料数据已保存到云端');
+        }
+
+        async function loadInboundRecords() {
+            const { data, error } = await supabase
+                .from('inbound_records')
+                .select('data')
+                .order('created_at', { ascending: false })
+                .limit(1);
+            if (error) {
+                console.error('加载生产入库记录失败', error);
+                inboundRecords = [];
+            } else {
+                inboundRecords = data[0]?.data || [];
+                inboundRecords = inboundRecords.map(rec => {
+                    if (!rec.items) rec.items = [];
+                    rec.items = rec.items.map(item => ({
+                        product: item.product || '',
+                        spec: item.spec || '',
+                        quantity: item.quantity || '',
+                        unit: item.unit || ''
+                    }));
+                    return rec;
+                });
+            }
+            renderInboundTable();
+        }
+
+        async function saveInboundRecords() {
+            await supabase.from('inbound_records').delete().neq('id', 0);
+            const { error } = await supabase
+                .from('inbound_records')
+                .insert([{ data: inboundRecords }]);
+            if (error) console.error('保存生产入库记录失败', error);
+            log('生产入库数据已保存到云端');
+        }
+
+        // ---------- 生成编号 ----------
+        function generatePickId() {
+            if (pickRecords.length === 0) return 'KM000001';
+            const maxNum = pickRecords.map(p => {
+                const match = p.id.match(/^KM(\d+)$/);
+                return match ? parseInt(match[1], 10) : 0;
+            }).reduce((a, b) => Math.max(a, b), 0);
+            return 'KM' + String(maxNum + 1).padStart(6, '0');
+        }
+        function generateInboundId() {
+            if (inboundRecords.length === 0) return 'RK000001';
+            const maxNum = inboundRecords.map(p => {
+                const match = p.id.match(/^RK(\d+)$/);
+                return match ? parseInt(match[1], 10) : 0;
+            }).reduce((a, b) => Math.max(a, b), 0);
+            return 'RK' + String(maxNum + 1).padStart(6, '0');
+        }
+
+        // ---------- 登录退出 ----------
+        $('loginBtn').addEventListener('click', async () => {
+            const u = $('username').value.trim();
+            const p = $('password').value;
+            log(`尝试登录: 用户名="${u}"`);
+            const user = users.find(x => x.username === u && x.password === p);
+            if (user) {
+                currentUser = user.username;
+                currentRole = user.role;
+                $('loginDiv').classList.add('hidden');
+                $('mainDiv').classList.remove('hidden');
+                $('currentUser').textContent = currentUser;
+                $('currentRole').textContent = currentRole;
+                // 加载所有云端数据
+                await loadDevices();
+                await loadPickRecords();
+                await loadInboundRecords();
+                $('btnList').click(); // 默认显示设备列表
+                log('登录成功');
+            } else {
+                alert('账号或密码错误');
+                log('登录失败');
+            }
+        });
+
+        $('logoutBtn').addEventListener('click', () => {
+            currentUser = null; currentRole = null;
+            $('mainDiv').classList.add('hidden');
+            $('loginDiv').classList.remove('hidden');
+            log('已退出登录');
+        });
+
+        // ---------- 侧边栏 ----------
+        const sidebar = $('sidebar');
+        $('toggleSidebar').addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            $('toggleSidebar').textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        });
+
+        // ---------- 菜单点击事件 ----------
+        $('menuAdd').addEventListener('click', () => showAddForm());
+        $('menuList').addEventListener('click', () => showDeviceList());
+        $('menuPickAdd').addEventListener('click', () => {
+            pickEditIndex = -1;
+            showPickAddForm();
+        });
+        $('menuPickList').addEventListener('click', () => showPickList());
+        $('menuInboundAdd').addEventListener('click', () => {
+            inboundEditIndex = -1;
+            showInboundAddForm();
+        });
+        $('menuInboundList').addEventListener('click', () => showInboundList());
+        $('menuOptions').addEventListener('click', () => showOptions());
+
+        $('listImportBtn').addEventListener('click', () => $('btnImport').click());
+        $('listExportBtn').addEventListener('click', () => $('btnExport').click());
+        $('closeOptionsBtn').addEventListener('click', () => {
+            $('optionManager').classList.add('hidden');
+            showDeviceList();
+        });
+
+        // ---------- 界面切换函数 ----------
+        function hideAllSections() {
+            $('addFormDiv').classList.add('hidden');
+            $('deviceListDiv').classList.add('hidden');
+            $('optionManager').classList.add('hidden');
+            $('pickAddFormDiv').classList.add('hidden');
+            $('pickListDiv').classList.add('hidden');
+            $('inboundAddFormDiv').classList.add('hidden');
+            $('inboundListDiv').classList.add('hidden');
+        }
+
+        function showOptions() {
+            hideAllSections();
+            renderOptionLists();
+            $('optionManager').classList.remove('hidden');
+            log('切换到后台管理');
+        }
+
+        // ---------- 设备相关操作 ----------
+        function showAddForm() {
+            hideAllSections();
+            ['receivingDept', 'model', 'serial', 'sampleType', 'chip', 'mac', 'debugDate', 'debugUser', 'toner', 'replacedParts', 'standard', 'shipDate', 'shipUser', 'note']
+                .forEach(id => $(id).value = '');
+            $('standard').value = '定影器1台、定影神器1个、套鼓1套、电源线1条、网线1条、数据线1条';
+            $('replacedParts').value = '下粉电机齿轮B/C各4个，下粉通道下粉口海绵4个，鼓芯片传感器U型海绵4个，4155面板贴1张，显影仓上盖挡粉片4条，显影仓上盖海绵条(长条)4条，显影仓挡粉片8条，显影仓毛毡8条，显影仓左右海绵8个，清洁组件挡粉海绵左右毛毡2个，转换板贸易版1个，定影神器1个，加密狗1个，搓纸轮12个。';
+            editIndex = -1;
+            $('addFormDiv').classList.remove('hidden');
+            $('formTitle').textContent = '新增设备';
+            $('saveButton').textContent = '保存';
+            $('searchInput').value = '';
+            log('切换到新增设备表单');
+        }
+
+        function showDeviceList() {
+            hideAllSections();
+            $('deviceListDiv').classList.remove('hidden');
+            renderDeviceTable();
+            log('切换到设备列表');
+        }
+
+        $('saveButton').addEventListener('click', async () => {
+            const device = {
+                receivingDept: $('receivingDept').value.trim(),
+                model: $('model').value.trim(),
+                serial: $('serial').value.trim(),
+                sampleType: $('sampleType').value.trim(),
+                chip: $('chip').value.trim(),
+                mac: $('mac').value.trim(),
+                debugDate: $('debugDate').value,
+                debugUser: $('debugUser').value.trim(),
+                replacedParts: $('replacedParts').value.trim(),
+                toner: $('toner').value.trim(),
+                standard: $('standard').value.trim(),
+                shipDate: $('shipDate').value,
+                shipUser: $('shipUser').value.trim(),
+                note: $('note').value.trim()
+            };
+            if (!device.serial) {
+                alert('请填写 SN（必填）');
+                return;
+            }
+            const found = devices.findIndex(d => d.serial === device.serial);
+            if (editIndex === -1) {
+                if (found !== -1) { alert('该 SN 已存在，无法新增'); return; }
+                devices.push(device);
+                log('新增设备：' + device.serial);
+            } else {
+                if (found !== -1 && found !== editIndex) { alert('该 SN 已存在，无法保存'); return; }
+                devices[editIndex] = device;
+                log('更新设备：' + device.serial);
+                editIndex = -1;
+            }
+            await saveDevices();
+            cancelEdit();
+            showDeviceList();
+        });
+
+        $('cancelButton').addEventListener('click', () => {
+            cancelEdit();
+            showDeviceList();
+        });
+
+        function cancelEdit() {
+            editIndex = -1;
+            ['receivingDept', 'model', 'serial', 'sampleType', 'chip', 'mac', 'debugDate', 'debugUser', 'toner', 'replacedParts', 'standard', 'shipDate', 'shipUser', 'note']
+                .forEach(id => $(id).value = '');
+        }
+
+        $('searchInput').addEventListener('input', renderDeviceTable);
+        function renderDeviceTable() {
+            const tbody = document.querySelector('#deviceTable tbody');
+            tbody.innerHTML = '';
+            const keyword = $('searchInput').value.trim().toLowerCase();
+            let displayIndex = 0;
+            devices.forEach((d, idx) => {
+                if (keyword && !d.serial.toLowerCase().includes(keyword)) return;
+                displayIndex++;
+                const tr = document.createElement('tr');
+                tr.dataset.index = idx;
+                tr.innerHTML = `
+                    <td>${displayIndex}</td>
+                    <td title="${escapeHtml(d.receivingDept)}">${escapeHtml(d.receivingDept)}</td>
+                    <td title="${escapeHtml(d.model)}">${escapeHtml(d.model)}</td>
+                    <td title="${escapeHtml(d.serial)}">${escapeHtml(d.serial)}</td>
+                    <td title="${escapeHtml(d.sampleType)}">${escapeHtml(d.sampleType)}</td>
+                    <td title="${escapeHtml(d.chip)}">${escapeHtml(d.chip)}</td>
+                    <td title="${escapeHtml(d.mac)}">${escapeHtml(d.mac)}</td>
+                    <td title="${escapeHtml(d.debugDate)}">${escapeHtml(d.debugDate)}</td>
+                    <td title="${escapeHtml(d.debugUser)}">${escapeHtml(d.debugUser)}</td>
+                    <td title="${escapeHtml(d.replacedParts)}">${escapeHtml(d.replacedParts)}</td>
+                    <td title="${escapeHtml(d.toner)}">${escapeHtml(d.toner)}</td>
+                    <td title="${escapeHtml(d.standard)}">${escapeHtml(d.standard)}</td>
+                    <td title="${escapeHtml(d.shipDate)}">${escapeHtml(d.shipDate)}</td>
+                    <td title="${escapeHtml(d.shipUser)}">${escapeHtml(d.shipUser)}</td>
+                    <td title="${escapeHtml(d.note)}">${escapeHtml(d.note)}</td>
+                    <td>
+                        <button class="icon-btn" title="修改" onclick="window.editDevice(${idx})">✏️</button>
+                        <button class="icon-btn" title="打印" onclick="window.printDevice(${idx})">🖨️</button>
+                        <button class="icon-btn" title="详情" onclick="window.showDetail(${idx})">📄</button>
+                        <button class="icon-btn" title="删除" onclick="window.deleteDevice(${idx})">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            log('渲染设备表格（共 ' + devices.length + ' 条，显示 ' + displayIndex + ' 条）');
+        }
+
+        window.showDetail = function(idx) {
+            const d = devices[idx];
+            if (!d) return;
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '—';
+                const parts = dateStr.split('-');
+                if (parts.length === 3) return `${parts[0]}年${parts[1]}月${parts[2]}日`;
+                return dateStr;
+            };
+            const html = `
+                <div class="detail-item-full"><div class="detail-label">收单部门</div><div class="detail-value">${escapeHtml(d.receivingDept) || '—'}</div></div>
+                <div><div class="detail-label">机器型号</div><div class="detail-value">${escapeHtml(d.model)}</div></div>
+                <div><div class="detail-label">SN</div><div class="detail-value">${escapeHtml(d.serial)}</div></div>
+                <div><div class="detail-label">样张类别</div><div class="detail-value">${escapeHtml(d.sampleType) || '—'}</div></div>
+                <div><div class="detail-label">芯片版本</div><div class="detail-value">${escapeHtml(d.chip) || '—'}</div></div>
+                <div><div class="detail-label">MAC</div><div class="detail-value">${escapeHtml(d.mac) || '—'}</div></div>
+                <div><div class="detail-label">操作日期</div><div class="detail-value">${formatDate(d.debugDate)}</div></div>
+                <div><div class="detail-label">操作员工</div><div class="detail-value">${escapeHtml(d.debugUser) || '—'}</div></div>
+                <div class="detail-item-full"><div class="detail-label">更换配件明细</div><div class="detail-value">${escapeHtml(d.replacedParts) || '无'}</div></div>
+                <div><div class="detail-label">随机墨粉</div><div class="detail-value">${escapeHtml(d.toner) || '—'}</div></div>
+                <div><div class="detail-label">标配明细</div><div class="detail-value">${escapeHtml(d.standard) || '—'}</div></div>
+                <div><div class="detail-label">调试日期</div><div class="detail-value">${formatDate(d.shipDate)}</div></div>
+                <div><div class="detail-label">调试员工</div><div class="detail-value">${escapeHtml(d.shipUser) || '—'}</div></div>
+                <div class="detail-item-full"><div class="detail-label">备注</div><div class="detail-value">${escapeHtml(d.note) || '—'}</div></div>
+            `;
+            $('modalDetailContent').innerHTML = html;
+            $('detailModal').style.display = 'flex';
+        };
+
+        window.deleteDevice = async function(idx) {
+            if (!confirm('确定要删除该设备吗？')) return;
+            const pwd = prompt('请输入删除密码：');
+            if (pwd !== '6789') {
+                alert('密码错误，删除失败');
+                return;
+            }
+            devices.splice(idx, 1);
+            await saveDevices();
+            renderDeviceTable();
+            log('已删除设备');
+        };
+
+        document.querySelector('.close-modal').onclick = () => $('detailModal').style.display = 'none';
+
+        window.onclick = function(event) {
+            if (event.target === $('detailModal')) $('detailModal').style.display = 'none';
+            if (event.target === $('pickDetailModal')) $('pickDetailModal').style.display = 'none';
+            if (event.target === $('inboundDetailModal')) $('inboundDetailModal').style.display = 'none';
+        };
+
+        window.editDevice = function(idx) {
+            const pwd = prompt('请输入修改密码：');
+            if (pwd !== '6789') {
+                alert('密码错误，无法修改');
+                return;
+            }
+            editIndex = idx;
+            const d = devices[idx];
+            $('receivingDept').value = d.receivingDept || '';
+            $('model').value = d.model || '';
+            $('serial').value = d.serial || '';
+            $('sampleType').value = d.sampleType || '';
+            $('chip').value = d.chip || '';
+            $('mac').value = d.mac || '';
+            $('debugDate').value = d.debugDate || '';
+            $('debugUser').value = d.debugUser || '';
+            $('replacedParts').value = d.replacedParts || '';
+            $('toner').value = d.toner || '';
+            $('standard').value = d.standard || '';
+            $('shipDate').value = d.shipDate || '';
+            $('shipUser').value = d.shipUser || '';
+            $('note').value = d.note || '';
+            hideAllSections();
+            $('addFormDiv').classList.remove('hidden');
+            $('formTitle').textContent = '修改设备';
+            $('saveButton').textContent = '更新';
+            log('编辑设备：' + d.serial);
+        };
+
+        // 设备导入导出
+        $('btnImport').addEventListener('click', () => $('excelInput').click());
+        $('excelInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                try {
+                    const data = new Uint8Array(loadEvent.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                    if (rows.length < 2) { alert('Excel 文件无数据'); return; }
+                    let addedCount = 0;
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (row.length < 2) continue;
+                        const obj = {
+                            receivingDept: row[0]?.toString().trim() || '',
+                            model: row[1]?.toString().trim() || '',
+                            serial: row[2]?.toString().trim() || '',
+                            sampleType: row[3]?.toString().trim() || '',
+                            chip: row[4]?.toString().trim() || '',
+                            mac: row[5]?.toString().trim() || '',
+                            debugDate: row[6]?.toString().trim() || '',
+                            debugUser: row[7]?.toString().trim() || '',
+                            replacedParts: row[8]?.toString().trim() || '',
+                            toner: row[9]?.toString().trim() || '',
+                            standard: row[10]?.toString().trim() || '',
+                            shipDate: row[11]?.toString().trim() || '',
+                            shipUser: row[12]?.toString().trim() || '',
+                            note: row[13]?.toString().trim() || ''
+                        };
+                        if (!obj.serial) continue;
+                        if (devices.find(d => d.serial === obj.serial)) {
+                            log('跳过重复 SN ' + obj.serial);
+                            continue;
+                        }
+                        devices.push(obj);
+                        addedCount++;
+                    }
+                    if (addedCount > 0) {
+                        saveDevices();
+                        renderDeviceTable();
+                        log(`导入完成，新增 ${addedCount} 条记录`);
+                    } else {
+                        log('导入完成，无新记录');
+                    }
+                } catch (ex) {
+                    alert('Excel 解析失败：' + ex.message);
+                    log('导入异常：' + ex);
+                }
+                e.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        $('btnExport').addEventListener('click', () => {
+            if (devices.length === 0) { alert('没有数据可导出'); return; }
+            const headers = ['收单部门', '机器型号', 'SN', '样张类别', '芯片版本', 'MAC', '操作日期', '操作员工', '更换配件明细', '随机墨粉', '标配明细', '调试日期', '调试员工', '备注'];
+            const data = devices.map(d => [
+                d.receivingDept || '',
+                d.model || '',
+                d.serial || '',
+                d.sampleType || '',
+                d.chip || '',
+                d.mac || '',
+                d.debugDate || '',
+                d.debugUser || '',
+                d.replacedParts || '',
+                d.toner || '',
+                d.standard || '',
+                d.shipDate || '',
+                d.shipUser || '',
+                d.note || ''
+            ]);
+            const wsData = [headers, ...data];
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, '设备清单');
+            XLSX.writeFile(wb, '设备清单.xlsx');
+            log('导出 Excel 成功，共 ' + devices.length + '条');
+        });
+
+        // 设备打印
+        function buildPrintHTML(items) {
+            const pages = items.map((d, index) => {
+                const receiver = d.receivingDept || '';
+                const formatDate = (dateStr) => {
+                    if (!dateStr) return '';
+                    const parts = dateStr.split('-');
+                    if (parts.length === 3) return `${parts[0]}年${parts[1]}月${parts[2]}日`;
+                    return dateStr;
+                };
+                let topDate = d.shipDate;
+                if (!topDate) {
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    const d = String(today.getDate()).padStart(2, '0');
+                    topDate = `${y}-${m}-${d}`;
+                }
+                const debugDateFormatted = formatDate(d.debugDate);
+                const shipDateFormatted = formatDate(d.shipDate);
+                const topDateFormatted = formatDate(topDate);
+
+                return `
+                <div class="print-page" style="page-break-after:always; background:white; padding:8px; font-family: 'Microsoft YaHei', Arial, sans-serif; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; min-height:100%;">
+                    <div>
+                        <h1 style="font-size:22px; font-weight:bold; text-align:center; margin:0 0 6px 0; color:#111;">出货单</h1>
+                        <div class="header-row" style="width:80%; margin:0 auto 6px auto; display: flex; justify-content: space-between; font-size:13px;">
+                            <span>收单部门：${escapeHtml(receiver)}</span>
+                            <span>日期：${topDateFormatted}</span>
+                        </div>
+                        <table style="width:80%; margin:0 auto; border-collapse:collapse; border:1px solid #000; font-size:13px;">
+                            <tr>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; width:25%; vertical-align:middle;">机器型号</td>
+                                <td style="border:1px solid #000; padding:12px; width:25%; vertical-align:middle;">${escapeHtml(d.model)}</td>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; width:25%; vertical-align:middle;">芯片版本</td>
+                                <td style="border:1px solid #000; padding:12px; width:25%; vertical-align:middle;">${escapeHtml(d.chip) || ''}</td>
+                            </tr>
+                            <tr>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">MAC地址</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${escapeHtml(d.mac) || ''}</td>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">样张类别</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${escapeHtml(d.sampleType) || ''}</td>
+                            </tr>
+                            <tr>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">操作日期</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${debugDateFormatted}</td>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">操作员工</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${escapeHtml(d.debugUser) || ''}</td>
+                            </tr>
+                            <tr>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">调试日期</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${shipDateFormatted}</td>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">调试员工</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${escapeHtml(d.shipUser) || ''}</td>
+                            </tr>
+                            <tr>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">更换配件明细</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;" colspan="3">${escapeHtml(d.replacedParts) || ''}</td>
+                            </tr>
+                            <tr>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">随机墨粉</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;" colspan="3">${escapeHtml(d.toner) || ''}</td>
+                            </tr>
+                            <tr>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">标配明细</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;" colspan="3">${escapeHtml(d.standard) || ''}</td>
+                            </tr>
+                            <tr>
+                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">备注</td>
+                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;" colspan="3">${escapeHtml(d.note) || ''}</td>
+                            </tr>
+                        </table>
+                        <div class="footer-row" style="width:80%; margin:6px auto 0 auto; display: flex; justify-content: space-between; font-size:13px;">
+                            <span>制单部门：机器部</span>
+                            <span>制单员工：${escapeHtml(currentUser || '')}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('\n');
+
+            return `<!doctype html><html><head><meta charset="utf-8"><title>出货单</title>
+                <style>
+                    @media print {
+                        @page { size: A5; margin: 2mm; }
+                        html, body { height: 100%; margin: 0; padding: 0; }
+                        body { background: white; display: flex; flex-direction: column; }
+                        .print-page { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 8px; box-sizing: border-box; }
+                        h1 { margin: 0 0 6px 0; text-align: center; }
+                        .header-row { width:80%; margin:0 auto 6px auto; display: flex; justify-content: space-between; font-size:13px; }
+                        table { width: 80%; margin: 0 auto; border-collapse: collapse; border: 1px solid #000; font-size: 13px; }
+                        td { border: 1px solid #000; padding: 12px; vertical-align: middle; }
+                        .footer-row { width:80%; margin:6px auto 0 auto; display: flex; justify-content: space-between; font-size:13px; }
+                    }
+                    body { margin: 0; padding: 0; background: white; }
+                </style>
+                </head><body>${pages}</body></html>`;
+        }
+
+        window.printDevice = function(idx) {
+            const d = devices[idx];
+            const html = buildPrintHTML([d]);
+            const iframe = $('printFrame');
+            iframe.srcdoc = html;
+            iframe.onload = () => {
+                setTimeout(() => {
+                    try {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                        log('已调用打印：' + d.serial);
+                    } catch (e) {
+                        log('打印异常：' + e);
+                        alert('打印可能被浏览器拦截，请允许打印权限');
+                    }
+                }, 100);
+            };
+        };
+
+        // ---------- 领料模块 ----------
+        const pickItemsContainer = $('pickItemsContainer');
+        const addPickItemBtn = $('addPickItemBtn');
+        const MAX_ITEMS = 7;
+
+        function renderPickItems(itemsData) {
+            pickItemsContainer.innerHTML = '';
+            if (!itemsData || itemsData.length === 0) {
+                itemsData = [{ product: '', spec: '', quantity: '', unit: '', purpose: '' }];
+            }
+            itemsData.forEach((item, index) => addPickItemRow(item, index));
+            updatePickAddButtonState();
+        }
+
+        function addPickItemRow(itemData = { product: '', spec: '', quantity: '', unit: '', purpose: '' }, index = null) {
+            if (pickItemsContainer.children.length >= MAX_ITEMS) {
+                alert('最多只能添加7个物品');
+                return;
+            }
+            const newIndex = index !== null ? index : pickItemsContainer.children.length;
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'pick-item-row';
+            rowDiv.innerHTML = `
+                <span class="pick-item-index">${newIndex + 1}</span>
+                <input type="text" class="form-control pick-product" placeholder="产品名称" value="${escapeHtml(itemData.product)}">
+                <input type="text" class="form-control pick-spec" placeholder="规格型号" value="${escapeHtml(itemData.spec)}">
+                <input type="number" class="form-control pick-quantity" placeholder="数量" value="${escapeHtml(itemData.quantity)}">
+                <input type="text" class="form-control pick-unit" placeholder="单位" value="${escapeHtml(itemData.unit)}">
+                <input type="text" class="form-control pick-purpose" placeholder="用途" value="${escapeHtml(itemData.purpose)}">
+                <button type="button" class="remove-item-btn" title="删除此行">✕</button>
+            `;
+            pickItemsContainer.appendChild(rowDiv);
+            rowDiv.querySelector('.remove-item-btn').addEventListener('click', () => {
+                if (pickItemsContainer.children.length <= 1) {
+                    alert('至少保留一行物品');
+                    return;
+                }
+                rowDiv.remove();
+                updatePickItemIndexes();
+                updatePickAddButtonState();
+            });
+            updatePickAddButtonState();
+        }
+
+        function updatePickItemIndexes() {
+            Array.from(pickItemsContainer.children).forEach((row, idx) => {
+                row.querySelector('.pick-item-index').textContent = idx + 1;
+            });
+        }
+
+        function updatePickAddButtonState() {
+            const count = pickItemsContainer.children.length;
+            addPickItemBtn.classList.toggle('disabled', count >= MAX_ITEMS);
+            addPickItemBtn.title = count >= MAX_ITEMS ? '已达最大数量' : '';
+        }
+
+        addPickItemBtn.addEventListener('click', () => addPickItemRow());
+
+        function collectPickItems() {
+            return Array.from(pickItemsContainer.querySelectorAll('.pick-item-row')).map(row => ({
+                product: row.querySelector('.pick-product').value.trim(),
+                spec: row.querySelector('.pick-spec').value.trim(),
+                quantity: row.querySelector('.pick-quantity').value.trim(),
+                unit: row.querySelector('.pick-unit').value.trim(),
+                purpose: row.querySelector('.pick-purpose').value.trim()
+            }));
+        }
+
+        function showPickAddForm() {
+            hideAllSections();
+            $('pickRemark').value = '';
+
+            if (pickEditIndex === -1) {
+                $('pickId').value = generatePickId();
+                $('pickFormTitle').textContent = '📦 新增领料';
+                $('pickSaveButton').textContent = '保存';
+                renderPickItems([]);
+                log('切换到新增领料');
+            } else {
+                const p = pickRecords[pickEditIndex];
+                if (!p) {
+                    pickEditIndex = -1;
+                    showPickAddForm();
+                    return;
+                }
+                $('pickId').value = p.id || '';
+                $('pickRemark').value = p.remark || '';
+                $('pickFormTitle').textContent = '📦 编辑领料';
+                $('pickSaveButton').textContent = '更新';
+                renderPickItems(p.items || []);
+                log('切换到编辑领料，编号：' + p.id);
+            }
+            $('pickAddFormDiv').classList.remove('hidden');
+        }
+
+        function showPickList() {
+            hideAllSections();
+            $('pickListDiv').classList.remove('hidden');
+            renderPickTable();
+            log('切换到领料列表');
+        }
+
+        $('pickSearchInput').addEventListener('input', renderPickTable);
+        function renderPickTable() {
+            const tbody = document.querySelector('#pickTable tbody');
+            tbody.innerHTML = '';
+            const keyword = $('pickSearchInput').value.trim().toLowerCase();
+            let displayIndex = 0;
+            pickRecords.forEach((p, idx) => {
+                const match = keyword === '' || p.id.toLowerCase().includes(keyword) ||
+                    (p.items || []).some(item => item.product.toLowerCase().includes(keyword) || item.spec.toLowerCase().includes(keyword));
+                if (!match) return;
+                displayIndex++;
+                const firstItem = p.items && p.items.length > 0 ? p.items[0] : null;
+                let summary = firstItem ? firstItem.product : '—';
+                if (firstItem && firstItem.spec) summary += ` (${firstItem.spec})`;
+                if (p.items && p.items.length > 1) summary += ` 等${p.items.length}项`;
+                const itemCount = p.items ? p.items.length : 0;
+                const remark = p.remark || '—';
+                const tr = document.createElement('tr');
+                tr.dataset.index = idx;
+                tr.innerHTML = `
+                    <td>${displayIndex}</td>
+                    <td title="${escapeHtml(p.id)}">${escapeHtml(p.id)}</td>
+                    <td title="${escapeHtml(summary)}">${escapeHtml(summary)}</td>
+                    <td>${itemCount}</td>
+                    <td title="${escapeHtml(remark)}">${escapeHtml(remark)}</td>
+                    <td>
+                        <button class="icon-btn" title="修改" onclick="window.editPick(${idx})">✏️</button>
+                        <button class="icon-btn" title="打印" onclick="window.printPick(${idx})">🖨️</button>
+                        <button class="icon-btn" title="详情" onclick="window.showPickDetail(${idx})">📄</button>
+                        <button class="icon-btn" title="删除" onclick="window.deletePick(${idx})">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            log('渲染领料表格（共 ' + pickRecords.length + ' 条，显示 ' + displayIndex + ' 条）');
+        }
+
+        $('pickSaveButton').addEventListener('click', async () => {
+            log('保存领料，当前模式：' + (pickEditIndex === -1 ? '新增' : '编辑'));
+
+            try {
+                const items = collectPickItems();
+                if (items.length === 0) {
+                    alert('请至少添加一个物品');
+                    return;
+                }
+                for (let i = 0; i < items.length; i++) {
+                    if (!items[i].product.trim()) {
+                        alert(`第${i+1}行的产品名称为必填项`);
+                        return;
+                    }
+                    if (!items[i].quantity.trim()) {
+                        alert(`第${i+1}行的数量为必填项`);
+                        return;
+                    }
+                }
+                const remark = $('pickRemark').value.trim();
+
+                if (pickEditIndex === -1) {
+                    const newId = generatePickId();
+                    pickRecords.push({ id: newId, items, remark });
+                    log('新增领料：' + newId);
+                } else {
+                    const oldId = pickRecords[pickEditIndex].id;
+                    pickRecords[pickEditIndex] = { id: oldId, items, remark };
+                    log('更新领料：' + oldId);
+                    pickEditIndex = -1;
+                }
+                await savePickRecords();
+                log('准备切换回领料列表');
+                showPickList();
+                log('已切换回领料列表');
+                alert('保存成功！');
+            } catch (error) {
+                log('保存错误：' + error.message);
+                alert('保存失败，请查看控制台');
+            }
+        });
+
+        $('pickCancelButton').addEventListener('click', () => showPickList());
+
+        window.editPick = function(idx) {
+            const pwd = prompt('请输入修改密码：');
+            if (pwd !== '6666') {
+                alert('密码错误，无法修改');
+                return;
+            }
+            pickEditIndex = idx;
+            showPickAddForm();
+        };
+
+        window.deletePick = async function(idx) {
+            if (!confirm('确定要删除该领料记录吗？')) return;
+            const pwd = prompt('请输入删除密码：');
+            if (pwd !== '6666') {
+                alert('密码错误，删除失败');
+                return;
+            }
+            pickRecords.splice(idx, 1);
+            await savePickRecords();
+            renderPickTable();
+            log('已删除领料');
+        };
+
+        window.showPickDetail = function(idx) {
+            const p = pickRecords[idx];
+            if (!p) return;
+            let itemsHtml = '<table class="items-table"><thead><tr><th>序号</th><th>产品名称</th><th>规格型号</th><th>数量</th><th>单位</th><th>用途</th></tr></thead><tbody>';
+            p.items.forEach((item, i) => {
+                itemsHtml += `<tr>
+                    <td>${i+1}</td>
+                    <td>${escapeHtml(item.product)}</td>
+                    <td>${escapeHtml(item.spec) || '—'}</td>
+                    <td>${escapeHtml(item.quantity)}</td>
+                    <td>${escapeHtml(item.unit) || '—'}</td>
+                    <td>${escapeHtml(item.purpose) || '—'}</td>
+                </tr>`;
+            });
+            itemsHtml += '</tbody></table>';
+            $('pickModalDetailContent').innerHTML = `
+                <div class="detail-item-full"><div class="detail-label">编号</div><div class="detail-value">${escapeHtml(p.id)}</div></div>
+                <div class="detail-item-full"><div class="detail-label">物品清单</div><div class="detail-value">${itemsHtml}</div></div>
+                <div class="detail-item-full"><div class="detail-label">备注</div><div class="detail-value">${escapeHtml(p.remark) || '—'}</div></div>
+            `;
+            $('pickDetailModal').style.display = 'flex';
+        };
+
+        document.querySelector('.close-pick-modal').onclick = () => $('pickDetailModal').style.display = 'none';
+
+        window.printPick = function(idx) {
+            const p = pickRecords[idx];
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+
+            let itemsRows = '';
+            if (p.items && p.items.length > 0) {
+                p.items.forEach((item, i) => {
+                    itemsRows += `<tr>
+                        <td style="border:1px solid #000; padding:8px;">${i+1}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.product)}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.spec) || '—'}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.quantity)}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.unit) || '—'}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.purpose) || '—'}</td>
+                    </tr>`;
+                });
+            }
+
+            const html = `
+                <!doctype html>
+                <html>
+                <head><meta charset="utf-8"><title>生产领料单</title>
+                <style>
+                    @media print {
+                        @page { size: A5; margin: 2mm; }
+                        body { margin: 0; padding: 0; background: white; display: flex; flex-direction: column; justify-content: center; min-height: 100%; }
+                        .print-page { page-break-after: always; padding: 8px; }
+                        h1 { text-align: center; margin: 0 0 6px 0; font-size: 22px; }
+                        .header-row { width:80%; margin:0 auto 6px auto; display: flex; justify-content: space-between; font-size: 13px; }
+                        table { width: 80%; margin: 0 auto; border-collapse: collapse; border: 1px solid #000; font-size: 13px; }
+                        th, td { border: 1px solid #000; padding: 8px; vertical-align: middle; }
+                        th { background: #f0f0f0; }
+                        .footer-row { width:80%; margin:6px auto 0 auto; display: flex; justify-content: space-between; font-size: 13px; }
+                        .remark-row { width:80%; margin:6px auto 0 auto; font-size: 13px; text-align: left; }
+                    }
+                </style>
+                </head>
+                <body>
+                    <div class="print-page">
+                        <h1>生产领料单</h1>
+                        <div class="header-row">
+                            <span>编号：${escapeHtml(p.id)}</span>
+                            <span>日期：${dateStr}</span>
+                            <span>制单部门：生产二部</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr><th>序号</th><th>产品名称</th><th>规格型号</th><th>数量</th><th>单位</th><th>用途</th></tr>
+                            </thead>
+                            <tbody>
+                                ${itemsRows}
+                            </tbody>
+                        </table>
+                        <div class="remark-row"><strong>备注：</strong>${escapeHtml(p.remark) || '—'}</div>
+                        <div class="footer-row">
+                            <span>审核员工：__________</span>
+                            <span>领料员工：__________</span>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+            const iframe = $('printFrame');
+            iframe.srcdoc = html;
+            iframe.onload = () => {
+                setTimeout(() => {
+                    try {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                        log('已调用打印领料单：' + p.id);
+                    } catch (e) {
+                        log('打印异常：' + e);
+                        alert('打印可能被浏览器拦截，请允许打印权限');
+                    }
+                }, 100);
+            };
+        };
+
+        // 领料导入
+        $('pickImportBtn').addEventListener('click', () => $('pickExcelInput').click());
+        $('pickExcelInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                try {
+                    const data = new Uint8Array(loadEvent.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+                    if (rows.length < 2) { alert('Excel 文件无数据'); return; }
+
+                    const groups = new Map();
+                    let addedCount = 0, skippedCount = 0;
+
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (row.length < 2) continue;
+                        let id = row[0] ? row[0].toString().trim() : '';
+                        const product = row[1] ? row[1].toString().trim() : '';
+                        const spec = row[2] ? row[2].toString().trim() : '';
+                        const quantity = row[3] ? row[3].toString().trim() : '';
+                        const unit = row[4] ? row[4].toString().trim() : '';
+                        const purpose = row[5] ? row[5].toString().trim() : '';
+                        const remark = row[6] ? row[6].toString().trim() : '';
+
+                        if (!product || !quantity) continue;
+
+                        if (!id) {
+                            id = 'TEMP_' + Math.random().toString(36).substr(2, 8);
+                        }
+
+                        if (!groups.has(id)) {
+                            groups.set(id, { items: [], remark: '' });
+                        }
+                        const group = groups.get(id);
+                        group.items.push({ product, spec, quantity, unit, purpose });
+                        if (remark && !group.remark) group.remark = remark;
+                    }
+
+                    for (let [tempId, group] of groups.entries()) {
+                        let finalId = tempId;
+                        let isTemp = tempId.startsWith('TEMP_');
+                        if (isTemp) {
+                            finalId = generatePickId();
+                        } else {
+                            const exists = pickRecords.some(p => p.id === finalId);
+                            if (exists) {
+                                log(`跳过已存在的领料编号: ${finalId}`);
+                                skippedCount++;
+                                continue;
+                            }
+                        }
+                        pickRecords.push({ id: finalId, items: group.items, remark: group.remark || '' });
+                        addedCount++;
+                    }
+
+                    if (addedCount > 0) {
+                        savePickRecords();
+                        renderPickTable();
+                        log(`导入完成，新增 ${addedCount} 条，跳过 ${skippedCount} 条`);
+                    } else {
+                        log('导入完成，无新记录');
+                    }
+                } catch (ex) {
+                    alert('Excel 解析失败：' + ex.message);
+                    log('导入异常：' + ex);
+                }
+                e.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // 领料导出
+        $('pickExportBtn').addEventListener('click', () => {
+            if (pickRecords.length === 0) { alert('没有数据可导出'); return; }
+            const headers = ['编号', '产品名称', '规格型号', '数量', '单位', '用途', '备注'];
+            const data = [];
+            pickRecords.forEach(p => {
+                const items = p.items || [];
+                if (items.length === 0) {
+                    data.push([p.id, '', '', '', '', '', p.remark || '']);
+                } else {
+                    items.forEach(item => {
+                        data.push([p.id, item.product || '', item.spec || '', item.quantity || '', item.unit || '', item.purpose || '', p.remark || '']);
+                    });
+                }
+            });
+            const wsData = [headers, ...data];
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, '领料清单');
+            XLSX.writeFile(wb, '领料清单.xlsx');
+            log('导出 Excel 成功，共 ' + pickRecords.length + ' 条领料单');
+        });
+
+        // ---------- 生产入库模块 ----------
+        const inboundItemsContainer = $('inboundItemsContainer');
+        const addInboundItemBtn = $('addInboundItemBtn');
+
+        function renderInboundItems(itemsData) {
+            inboundItemsContainer.innerHTML = '';
+            if (!itemsData || itemsData.length === 0) {
+                itemsData = [{ product: '', spec: '', quantity: '', unit: '' }];
+            }
+            itemsData.forEach((item, index) => addInboundItemRow(item, index));
+            updateInboundAddButtonState();
+        }
+
+        function addInboundItemRow(itemData = { product: '', spec: '', quantity: '', unit: '' }, index = null) {
+            if (inboundItemsContainer.children.length >= MAX_ITEMS) {
+                alert('最多只能添加7个物品');
+                return;
+            }
+            const newIndex = index !== null ? index : inboundItemsContainer.children.length;
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'inbound-item-row';
+            rowDiv.innerHTML = `
+                <span class="inbound-item-index">${newIndex + 1}</span>
+                <input type="text" class="form-control inbound-product" placeholder="产品名称" value="${escapeHtml(itemData.product)}">
+                <input type="text" class="form-control inbound-spec" placeholder="规格型号" value="${escapeHtml(itemData.spec)}">
+                <input type="number" class="form-control inbound-quantity" placeholder="数量" value="${escapeHtml(itemData.quantity)}">
+                <input type="text" class="form-control inbound-unit" placeholder="单位" value="${escapeHtml(itemData.unit)}">
+                <button type="button" class="remove-item-btn" title="删除此行">✕</button>
+            `;
+            inboundItemsContainer.appendChild(rowDiv);
+            rowDiv.querySelector('.remove-item-btn').addEventListener('click', () => {
+                if (inboundItemsContainer.children.length <= 1) {
+                    alert('至少保留一行物品');
+                    return;
+                }
+                rowDiv.remove();
+                updateInboundItemIndexes();
+                updateInboundAddButtonState();
+            });
+            updateInboundAddButtonState();
+        }
+
+        function updateInboundItemIndexes() {
+            Array.from(inboundItemsContainer.children).forEach((row, idx) => {
+                row.querySelector('.inbound-item-index').textContent = idx + 1;
+            });
+        }
+
+        function updateInboundAddButtonState() {
+            const count = inboundItemsContainer.children.length;
+            addInboundItemBtn.classList.toggle('disabled', count >= MAX_ITEMS);
+            addInboundItemBtn.title = count >= MAX_ITEMS ? '已达最大数量' : '';
+        }
+
+        addInboundItemBtn.addEventListener('click', () => addInboundItemRow());
+
+        function collectInboundItems() {
+            return Array.from(inboundItemsContainer.querySelectorAll('.inbound-item-row')).map(row => ({
+                product: row.querySelector('.inbound-product').value.trim(),
+                spec: row.querySelector('.inbound-spec').value.trim(),
+                quantity: row.querySelector('.inbound-quantity').value.trim(),
+                unit: row.querySelector('.inbound-unit').value.trim()
+            }));
+        }
+
+        function showInboundAddForm() {
+            hideAllSections();
+            $('inboundRemark').value = '';
+
+            if (inboundEditIndex === -1) {
+                $('inboundId').value = generateInboundId();
+                $('inboundFormTitle').textContent = '🏭 新增生产入库';
+                $('inboundSaveButton').textContent = '保存';
+                renderInboundItems([]);
+                log('切换到新增生产入库');
+            } else {
+                const p = inboundRecords[inboundEditIndex];
+                if (!p) {
+                    inboundEditIndex = -1;
+                    showInboundAddForm();
+                    return;
+                }
+                $('inboundId').value = p.id || '';
+                $('inboundRemark').value = p.remark || '';
+                $('inboundFormTitle').textContent = '🏭 编辑生产入库';
+                $('inboundSaveButton').textContent = '更新';
+                renderInboundItems(p.items || []);
+                log('切换到编辑生产入库，编号：' + p.id);
+            }
+            $('inboundAddFormDiv').classList.remove('hidden');
+        }
+
+        function showInboundList() {
+            hideAllSections();
+            $('inboundListDiv').classList.remove('hidden');
+            renderInboundTable();
+            log('切换到生产入库列表');
+        }
+
+        $('inboundSearchInput').addEventListener('input', renderInboundTable);
+        function renderInboundTable() {
+            const tbody = document.querySelector('#inboundTable tbody');
+            tbody.innerHTML = '';
+            const keyword = $('inboundSearchInput').value.trim().toLowerCase();
+            let displayIndex = 0;
+            inboundRecords.forEach((p, idx) => {
+                const match = keyword === '' || p.id.toLowerCase().includes(keyword) ||
+                    (p.items || []).some(item => item.product.toLowerCase().includes(keyword) || item.spec.toLowerCase().includes(keyword));
+                if (!match) return;
+                displayIndex++;
+                const firstItem = p.items && p.items.length > 0 ? p.items[0] : null;
+                let summary = firstItem ? firstItem.product : '—';
+                if (firstItem && firstItem.spec) summary += ` (${firstItem.spec})`;
+                if (p.items && p.items.length > 1) summary += ` 等${p.items.length}项`;
+                const itemCount = p.items ? p.items.length : 0;
+                const remark = p.remark || '—';
+                const tr = document.createElement('tr');
+                tr.dataset.index = idx;
+                tr.innerHTML = `
+                    <td>${displayIndex}</td>
+                    <td title="${escapeHtml(p.id)}">${escapeHtml(p.id)}</td>
+                    <td title="${escapeHtml(summary)}">${escapeHtml(summary)}</td>
+                    <td>${itemCount}</td>
+                    <td title="${escapeHtml(remark)}">${escapeHtml(remark)}</td>
+                    <td>
+                        <button class="icon-btn" title="修改" onclick="window.editInbound(${idx})">✏️</button>
+                        <button class="icon-btn" title="打印" onclick="window.printInbound(${idx})">🖨️</button>
+                        <button class="icon-btn" title="详情" onclick="window.showInboundDetail(${idx})">📄</button>
+                        <button class="icon-btn" title="删除" onclick="window.deleteInbound(${idx})">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            log('渲染生产入库表格（共 ' + inboundRecords.length + ' 条，显示 ' + displayIndex + ' 条）');
+        }
+
+        $('inboundSaveButton').addEventListener('click', async () => {
+            log('保存生产入库，当前模式：' + (inboundEditIndex === -1 ? '新增' : '编辑'));
+
+            try {
+                const items = collectInboundItems();
+                if (items.length === 0) {
+                    alert('请至少添加一个物品');
+                    return;
+                }
+                for (let i = 0; i < items.length; i++) {
+                    if (!items[i].product.trim()) {
+                        alert(`第${i+1}行的产品名称为必填项`);
+                        return;
+                    }
+                    if (!items[i].quantity.trim()) {
+                        alert(`第${i+1}行的数量为必填项`);
+                        return;
+                    }
+                }
+                const remark = $('inboundRemark').value.trim();
+
+                if (inboundEditIndex === -1) {
+                    const newId = generateInboundId();
+                    inboundRecords.push({ id: newId, items, remark });
+                    log('新增生产入库：' + newId);
+                } else {
+                    const oldId = inboundRecords[inboundEditIndex].id;
+                    inboundRecords[inboundEditIndex] = { id: oldId, items, remark };
+                    log('更新生产入库：' + oldId);
+                    inboundEditIndex = -1;
+                }
+                await saveInboundRecords();
+                log('准备切换回生产入库列表');
+                showInboundList();
+                log('已切换回生产入库列表');
+                alert('保存成功！');
+            } catch (error) {
+                log('保存错误：' + error.message);
+                alert('保存失败，请查看控制台');
+            }
+        });
+
+        $('inboundCancelButton').addEventListener('click', () => showInboundList());
+
+        window.editInbound = function(idx) {
+            const pwd = prompt('请输入修改密码：');
+            if (pwd !== '6666') {
+                alert('密码错误，无法修改');
+                return;
+            }
+            inboundEditIndex = idx;
+            showInboundAddForm();
+        };
+
+        window.deleteInbound = async function(idx) {
+            if (!confirm('确定要删除该生产入库记录吗？')) return;
+            const pwd = prompt('请输入删除密码：');
+            if (pwd !== '6666') {
+                alert('密码错误，删除失败');
+                return;
+            }
+            inboundRecords.splice(idx, 1);
+            await saveInboundRecords();
+            renderInboundTable();
+            log('已删除生产入库');
+        };
+
+        window.showInboundDetail = function(idx) {
+            const p = inboundRecords[idx];
+            if (!p) return;
+            let itemsHtml = '<table class="items-table"><thead><tr><th>序号</th><th>产品名称</th><th>规格型号</th><th>数量</th><th>单位</th></tr></thead><tbody>';
+            p.items.forEach((item, i) => {
+                itemsHtml += `<tr>
+                    <td>${i+1}</td>
+                    <td>${escapeHtml(item.product)}</td>
+                    <td>${escapeHtml(item.spec) || '—'}</td>
+                    <td>${escapeHtml(item.quantity)}</td>
+                    <td>${escapeHtml(item.unit) || '—'}</td>
+                </tr>`;
+            });
+            itemsHtml += '</tbody></table>';
+            $('inboundModalDetailContent').innerHTML = `
+                <div class="detail-item-full"><div class="detail-label">编号</div><div class="detail-value">${escapeHtml(p.id)}</div></div>
+                <div class="detail-item-full"><div class="detail-label">物品清单</div><div class="detail-value">${itemsHtml}</div></div>
+                <div class="detail-item-full"><div class="detail-label">备注</div><div class="detail-value">${escapeHtml(p.remark) || '—'}</div></div>
+            `;
+            $('inboundDetailModal').style.display = 'flex';
+        };
+
+        document.querySelector('.close-inbound-modal').onclick = () => $('inboundDetailModal').style.display = 'none';
+
+        window.printInbound = function(idx) {
+            const p = inboundRecords[idx];
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+
+            let itemsRows = '';
+            if (p.items && p.items.length > 0) {
+                p.items.forEach((item, i) => {
+                    itemsRows += `<tr>
+                        <td style="border:1px solid #000; padding:8px;">${i+1}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.product)}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.spec) || '—'}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.quantity)}</td>
+                        <td style="border:1px solid #000; padding:8px;">${escapeHtml(item.unit) || '—'}</td>
+                    </tr>`;
+                });
+            }
+
+            const html = `
+                <!doctype html>
+                <html>
+                <head><meta charset="utf-8"><title>生产入库单</title>
+                <style>
+                    @media print {
+                        @page { size: A5; margin: 2mm; }
+                        body { margin: 0; padding: 0; background: white; display: flex; flex-direction: column; justify-content: center; min-height: 100%; }
+                        .print-page { page-break-after: always; padding: 8px; }
+                        h1 { text-align: center; margin: 0 0 6px 0; font-size: 22px; }
+                        .header-row { width:80%; margin:0 auto 6px auto; display: flex; justify-content: space-between; font-size: 13px; }
+                        table { width: 80%; margin: 0 auto; border-collapse: collapse; border: 1px solid #000; font-size: 13px; }
+                        th, td { border: 1px solid #000; padding: 8px; vertical-align: middle; }
+                        th { background: #f0f0f0; }
+                        .footer-row { width:80%; margin:6px auto 0 auto; display: flex; justify-content: space-between; font-size: 13px; }
+                        .remark-row { width:80%; margin:6px auto 0 auto; font-size: 13px; text-align: left; }
+                    }
+                </style>
+                </head>
+                <body>
+                    <div class="print-page">
+                        <h1>生产入库单</h1>
+                        <div class="header-row">
+                            <span>编号：${escapeHtml(p.id)}</span>
+                            <span>日期：${dateStr}</span>
+                            <span>制单部门：生产二部</span>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr><th>序号</th><th>产品名称</th><th>规格型号</th><th>数量</th><th>单位</th></tr>
+                            </thead>
+                            <tbody>
+                                ${itemsRows}
+                            </tbody>
+                        </table>
+                        <div class="remark-row"><strong>备注：</strong>${escapeHtml(p.remark) || '—'}</div>
+                        <div class="footer-row">
+                            <span>审核员工：__________</span>
+                            <span>入库员工：__________</span>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+            const iframe = $('printFrame');
+            iframe.srcdoc = html;
+            iframe.onload = () => {
+                setTimeout(() => {
+                    try {
+                        iframe.contentWindow.focus();
+                        iframe.contentWindow.print();
+                        log('已调用打印生产入库单：' + p.id);
+                    } catch (e) {
+                        log('打印异常：' + e);
+                        alert('打印可能被浏览器拦截，请允许打印权限');
+                    }
+                }, 100);
+            };
+        };
+
+        // 生产入库导入
+        $('inboundImportBtn').addEventListener('click', () => $('inboundExcelInput').click());
+        $('inboundExcelInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                try {
+                    const data = new Uint8Array(loadEvent.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+                    if (rows.length < 2) { alert('Excel 文件无数据'); return; }
+
+                    const groups = new Map();
+                    let addedCount = 0, skippedCount = 0;
+
+                    for (let i = 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (row.length < 2) continue;
+                        let id = row[0] ? row[0].toString().trim() : '';
+                        const product = row[1] ? row[1].toString().trim() : '';
+                        const spec = row[2] ? row[2].toString().trim() : '';
+                        const quantity = row[3] ? row[3].toString().trim() : '';
+                        const unit = row[4] ? row[4].toString().trim() : '';
+                        const remark = row[5] ? row[5].toString().trim() : '';
+
+                        if (!product || !quantity) continue;
+
+                        if (!id) {
+                            id = 'TEMP_' + Math.random().toString(36).substr(2, 8);
+                        }
+
+                        if (!groups.has(id)) {
+                            groups.set(id, { items: [], remark: '' });
+                        }
+                        const group = groups.get(id);
+                        group.items.push({ product, spec, quantity, unit });
+                        if (remark && !group.remark) group.remark = remark;
+                    }
+
+                    for (let [tempId, group] of groups.entries()) {
+                        let finalId = tempId;
+                        let isTemp = tempId.startsWith('TEMP_');
+                        if (isTemp) {
+                            finalId = generateInboundId();
+                        } else {
+                            const exists = inboundRecords.some(p => p.id === finalId);
+                            if (exists) {
+                                log(`跳过已存在的生产入库编号: ${finalId}`);
+                                skippedCount++;
+                                continue;
+                            }
+                        }
+                        inboundRecords.push({ id: finalId, items: group.items, remark: group.remark || '' });
+                        addedCount++;
+                    }
+
+                    if (addedCount > 0) {
+                        saveInboundRecords();
+                        renderInboundTable();
+                        log(`导入完成，新增 ${addedCount} 条，跳过 ${skippedCount} 条`);
+                    } else {
+                        log('导入完成，无新记录');
+                    }
+                } catch (ex) {
+                    alert('Excel 解析失败：' + ex.message);
+                    log('导入异常：' + ex);
+                }
+                e.target.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // 生产入库导出
+        $('inboundExportBtn').addEventListener('click', () => {
+            if (inboundRecords.length === 0) { alert('没有数据可导出'); return; }
+            const headers = ['编号', '产品名称', '规格型号', '数量', '单位', '备注'];
+            const data = [];
+            inboundRecords.forEach(p => {
+                const items = p.items || [];
+                if (items.length === 0) {
+                    data.push([p.id, '', '', '', '', p.remark || '']);
+                } else {
+                    items.forEach(item => {
+                        data.push([p.id, item.product || '', item.spec || '', item.quantity || '', item.unit || '', p.remark || '']);
+                    });
+                }
+            });
+            const wsData = [headers, ...data];
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, '生产入库清单');
+            XLSX.writeFile(wb, '生产入库清单.xlsx');
+            log('导出 Excel 成功，共 ' + inboundRecords.length + ' 条生产入库单');
+        });
+
+        // ---------- 通用工具 ----------
+        function escapeHtml(s) { if (s == null) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+        // 选项管理按钮
+        $('addEmployeeBtn').addEventListener('click', () => {
+            const newEmp = $('newEmployee').value.trim();
+            if (!newEmp) {
+                alert('请输入员工姓名');
+                return;
+            }
+            if (employees.includes(newEmp)) {
+                alert('该员工已存在');
+                return;
+            }
+            employees.push(newEmp);
+            $('newEmployee').value = '';
+            saveOptions();
+        });
+
+        $('addModelBtn').addEventListener('click', () => {
+            const newModel = $('newModel').value.trim();
+            if (!newModel) {
+                alert('请输入机器型号');
+                return;
+            }
+            if (models.includes(newModel)) {
+                alert('该型号已存在');
+                return;
+            }
+            models.push(newModel);
+            $('newModel').value = '';
+            saveOptions();
+        });
+
+        log('系统初始化完成 - 云端版');
+    })();
+</script>
+</body>
+</html>
