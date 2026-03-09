@@ -1034,7 +1034,7 @@
             log('导出 Excel 成功，共 ' + devices.length + '条');
         });
 
-        // 设备打印
+        // 设备打印（已修改单元格内边距为 23px）
         function buildPrintHTML(items) {
             const pages = items.map((d, index) => {
                 const receiver = d.receivingDept || '';
@@ -1066,44 +1066,44 @@
                         </div>
                         <table style="width:80%; margin:0 auto; border-collapse:collapse; border:1px solid #000; font-size:13px;">
                             <tr>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; width:25%; vertical-align:middle;">机器型号</td>
-                                <td style="border:1px solid #000; padding:12px; width:25%; vertical-align:middle;">${escapeHtml(d.model)}</td>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; width:25%; vertical-align:middle;">芯片版本</td>
-                                <td style="border:1px solid #000; padding:12px; width:25%; vertical-align:middle;">${escapeHtml(d.chip) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; width:25%; vertical-align:middle;">机器型号</td>
+                                <td style="border:1px solid #000; padding:23px 12px; width:25%; vertical-align:middle;">${escapeHtml(d.model)}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; width:25%; vertical-align:middle;">芯片版本</td>
+                                <td style="border:1px solid #000; padding:23px 12px; width:25%; vertical-align:middle;">${escapeHtml(d.chip) || ''}</td>
                             </tr>
                             <tr>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">MAC地址</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${escapeHtml(d.mac) || ''}</td>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">样张类别</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${escapeHtml(d.sampleType) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">MAC地址</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;">${escapeHtml(d.mac) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">样张类别</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;">${escapeHtml(d.sampleType) || ''}</td>
                             </tr>
                             <tr>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">操作日期</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${debugDateFormatted}</td>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">操作员工</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${escapeHtml(d.debugUser) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">操作日期</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;">${debugDateFormatted}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">操作员工</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;">${escapeHtml(d.debugUser) || ''}</td>
                             </tr>
                             <tr>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">调试日期</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${shipDateFormatted}</td>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">调试员工</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;">${escapeHtml(d.shipUser) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">调试日期</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;">${shipDateFormatted}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">调试员工</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;">${escapeHtml(d.shipUser) || ''}</td>
                             </tr>
                             <tr>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">更换配件明细</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;" colspan="3">${escapeHtml(d.replacedParts) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">更换配件明细</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;" colspan="3">${escapeHtml(d.replacedParts) || ''}</td>
                             </tr>
                             <tr>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">随机墨粉</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;" colspan="3">${escapeHtml(d.toner) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">随机墨粉</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;" colspan="3">${escapeHtml(d.toner) || ''}</td>
                             </tr>
                             <tr>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">标配明细</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;" colspan="3">${escapeHtml(d.standard) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">标配明细</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;" colspan="3">${escapeHtml(d.standard) || ''}</td>
                             </tr>
                             <tr>
-                                <td style="border:1px solid #000; padding:12px; font-weight:600; vertical-align:middle;">备注</td>
-                                <td style="border:1px solid #000; padding:12px; vertical-align:middle;" colspan="3">${escapeHtml(d.note) || ''}</td>
+                                <td style="border:1px solid #000; padding:23px 12px; font-weight:600; vertical-align:middle;">备注</td>
+                                <td style="border:1px solid #000; padding:23px 12px; vertical-align:middle;" colspan="3">${escapeHtml(d.note) || ''}</td>
                             </tr>
                         </table>
                         <div class="footer-row" style="width:80%; margin:6px auto 0 auto; display: flex; justify-content: space-between; font-size:13px;">
@@ -1382,6 +1382,7 @@
 
         document.querySelector('.close-pick-modal').onclick = () => $('pickDetailModal').style.display = 'none';
 
+        // 生产领料单打印（已改为横向 A5）
         window.printPick = function(idx) {
             const p = pickRecords[idx];
             const today = new Date();
@@ -1407,7 +1408,7 @@
                 <head><meta charset="utf-8"><title>生产领料单</title>
                 <style>
                     @media print {
-                        @page { size: A5; margin: 2mm; }
+                        @page { size: A5 landscape; margin: 2mm; }
                         body { margin: 0; padding: 0; background: white; display: flex; flex-direction: column; justify-content: center; min-height: 100%; }
                         .print-page { page-break-after: always; padding: 8px; }
                         h1 { text-align: center; margin: 0 0 6px 0; font-size: 22px; }
@@ -1786,6 +1787,7 @@
 
         document.querySelector('.close-inbound-modal').onclick = () => $('inboundDetailModal').style.display = 'none';
 
+        // 生产入库单打印（已改为横向 A5）
         window.printInbound = function(idx) {
             const p = inboundRecords[idx];
             const today = new Date();
@@ -1810,7 +1812,7 @@
                 <head><meta charset="utf-8"><title>生产入库单</title>
                 <style>
                     @media print {
-                        @page { size: A5; margin: 2mm; }
+                        @page { size: A5 landscape; margin: 2mm; }
                         body { margin: 0; padding: 0; background: white; display: flex; flex-direction: column; justify-content: center; min-height: 100%; }
                         .print-page { page-break-after: always; padding: 8px; }
                         h1 { text-align: center; margin: 0 0 6px 0; font-size: 22px; }
